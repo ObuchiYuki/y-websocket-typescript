@@ -17,4 +17,3 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __exportStar(require("./Callback"), exports);
 __exportStar(require("./LeveldbAdaptor"), exports);
 __exportStar(require("./WSSharedDoc"), exports);
-__exportStar(require("./WebSocketProvider"), exports);
