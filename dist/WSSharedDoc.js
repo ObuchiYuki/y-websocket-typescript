@@ -32,8 +32,7 @@ exports.WSSharedDoc = void 0;
 const ws_1 = __importDefault(require("ws"));
 const debounce_1 = __importDefault(require("lodash/debounce"));
 const Y = __importStar(require("yjs"));
-const encoding = __importStar(require("lib0/encoding"));
-const decoding = __importStar(require("lib0/decoding"));
+const lib0 = __importStar(require("lib0-typescript"));
 const y_protocols_typescript_1 = require("y-protocols-typescript");
 const Callback_1 = require("./Callback");
 // ================================================================================================ // 
@@ -80,21 +79,21 @@ class WSSharedDoc extends Y.Doc {
         this.setupAwareness(socket);
     }
     setupSync(socket) {
-        const encoder = encoding.createEncoder();
-        encoding.writeVarUint(encoder, messageSync);
+        const encoder = new lib0.Encoder();
+        encoder.writeVarUint(messageSync);
         y_protocols_typescript_1.sync.writeSyncStep1(encoder, this);
-        this.send(socket, encoding.toUint8Array(encoder));
+        this.send(socket, encoder.toUint8Array());
     }
     setupAwareness(socket) {
         const awarenessStates = this.awareness.states;
         if (awarenessStates.size > 0) {
-            const encoder = encoding.createEncoder();
-            encoding.writeVarUint(encoder, messageAwareness);
+            const encoder = new lib0.Encoder();
+            encoder.writeVarUint(messageAwareness);
             const data = this.awareness.encodeUpdate(Array.from(awarenessStates.keys()));
             if (data == null)
                 return;
-            encoding.writeVarUint8Array(encoder, data);
-            this.send(socket, encoding.toUint8Array(encoder));
+            encoder.writeVarUint8Array(data);
+            this.send(socket, encoder.toUint8Array());
         }
     }
     setupPingPong(socket) {
@@ -167,10 +166,10 @@ class WSSharedDoc extends Y.Doc {
         }
     }
     updateHandler(update) {
-        const encoder = encoding.createEncoder();
-        encoding.writeVarUint(encoder, messageSync);
+        const encoder = new lib0.Encoder();
+        encoder.writeVarUint(messageSync);
         y_protocols_typescript_1.sync.writeUpdate(encoder, update);
-        const message = encoding.toUint8Array(encoder);
+        const message = encoder.toUint8Array();
         this.sockets.forEach((_, socket) => this.send(socket, message));
     }
     /** conn: Origin is the connection that made the change */
@@ -184,13 +183,13 @@ class WSSharedDoc extends Y.Doc {
             }
         }
         // broadcast awareness update
-        const encoder = encoding.createEncoder();
-        encoding.writeVarUint(encoder, messageAwareness);
+        const encoder = new lib0.Encoder();
+        encoder.writeVarUint(messageAwareness);
         const data = this.awareness.encodeUpdate(changedClients);
         if (data == null)
             return;
-        encoding.writeVarUint8Array(encoder, data);
-        const buff = encoding.toUint8Array(encoder);
+        encoder.writeVarUint8Array(data);
+        const buff = encoder.toUint8Array();
         this.sockets.forEach((_, c) => {
             this.send(c, buff);
         });
@@ -220,18 +219,18 @@ class WSSharedDoc extends Y.Doc {
             return;
         }
         try {
-            const encoder = encoding.createEncoder();
-            const decoder = decoding.createDecoder(message);
-            const messageType = decoding.readVarUint(decoder);
+            const encoder = new lib0.Encoder();
+            const decoder = new lib0.Decoder(message);
+            const messageType = decoder.readVarUint();
             if (messageType === messageSync) {
-                encoding.writeVarUint(encoder, messageSync);
+                encoder.writeVarUint(messageSync);
                 y_protocols_typescript_1.sync.readSyncMessage(decoder, encoder, this, null);
-                if (encoding.length(encoder) > 1) {
-                    this.send(socket, encoding.toUint8Array(encoder));
+                if (encoder.length > 1) {
+                    this.send(socket, encoder.toUint8Array());
                 }
             }
             else if (messageType === messageAwareness) {
-                this.awareness.applyUpdate(decoding.readVarUint8Array(decoder), socket);
+                this.awareness.applyUpdate(decoder.readVarUint8Array(), socket);
             }
             else {
                 console.error(`Not implemented ${messageType}`);

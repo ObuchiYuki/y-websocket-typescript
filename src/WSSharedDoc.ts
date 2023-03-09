@@ -4,9 +4,8 @@ import WebSocket from 'ws'
 import debounce from 'lodash/debounce'
 
 import * as Y from 'yjs'
-import * as encoding from 'lib0/encoding'
-import * as decoding from 'lib0/decoding'
 
+import * as lib0 from "lib0-typescript"
 import { sync, Awareness } from 'y-protocols-typescript'
 
 import { callbackHandler, isCallbackSet } from './Callback'
@@ -95,21 +94,21 @@ export class WSSharedDoc extends Y.Doc {
     }
     
     private setupSync(socket: WebSocket.WebSocket) {
-        const encoder = encoding.createEncoder()
-        encoding.writeVarUint(encoder, messageSync)
+        const encoder = new lib0.Encoder()
+        encoder.writeVarUint(messageSync)
         sync.writeSyncStep1(encoder, this)
-        this.send(socket, encoding.toUint8Array(encoder))
+        this.send(socket, encoder.toUint8Array())
     }
 
     private setupAwareness(socket: WebSocket.WebSocket) {
         const awarenessStates = this.awareness.states
         if (awarenessStates.size > 0) {
-            const encoder = encoding.createEncoder()
-            encoding.writeVarUint(encoder, messageAwareness)
+            const encoder = new lib0.Encoder()
+            encoder.writeVarUint(messageAwareness)
             const data = this.awareness.encodeUpdate(Array.from(awarenessStates.keys()))
             if (data == null) return
-            encoding.writeVarUint8Array(encoder, data)
-            this.send(socket, encoding.toUint8Array(encoder))
+            encoder.writeVarUint8Array(data)
+            this.send(socket, encoder.toUint8Array())
         }        
     }
 
@@ -185,10 +184,10 @@ export class WSSharedDoc extends Y.Doc {
     }
 
     private updateHandler(update: Uint8Array) {
-        const encoder = encoding.createEncoder()
-        encoding.writeVarUint(encoder, messageSync)
+        const encoder = new lib0.Encoder()
+        encoder.writeVarUint(messageSync)
         sync.writeUpdate(encoder, update)
-        const message = encoding.toUint8Array(encoder)
+        const message = encoder.toUint8Array()
 
         this.sockets.forEach((_, socket) => this.send(socket, message))
     }
@@ -204,12 +203,12 @@ export class WSSharedDoc extends Y.Doc {
             }
         }
         // broadcast awareness update
-        const encoder = encoding.createEncoder()
-        encoding.writeVarUint(encoder, messageAwareness)
+        const encoder = new lib0.Encoder()
+        encoder.writeVarUint(messageAwareness)
         const data = this.awareness.encodeUpdate(changedClients)
         if (data == null) return
-        encoding.writeVarUint8Array(encoder, data)
-        const buff = encoding.toUint8Array(encoder)
+        encoder.writeVarUint8Array(data)
+        const buff = encoder.toUint8Array()
         this.sockets.forEach((_, c) => {
             this.send(c, buff)
         })
@@ -243,20 +242,20 @@ export class WSSharedDoc extends Y.Doc {
         }
 
         try {
-            const encoder = encoding.createEncoder()
-            const decoder = decoding.createDecoder(message)
-            const messageType = decoding.readVarUint(decoder)
+            const encoder = new lib0.Encoder()
+            const decoder = new lib0.Decoder(message)
+            const messageType = decoder.readVarUint()
 
             if (messageType === messageSync) {
-                encoding.writeVarUint(encoder, messageSync)
+                encoder.writeVarUint(messageSync)
                 
                 sync.readSyncMessage(decoder, encoder, this, null)
                 
-                if (encoding.length(encoder) > 1) {
-                    this.send(socket, encoding.toUint8Array(encoder))
+                if (encoder.length > 1) {
+                    this.send(socket, encoder.toUint8Array())
                 }
             } else if (messageType === messageAwareness) {
-                this.awareness.applyUpdate(decoding.readVarUint8Array(decoder), socket)
+                this.awareness.applyUpdate(decoder.readVarUint8Array(), socket)
             } else {
                 console.error(`Not implemented ${messageType}`)
             }
